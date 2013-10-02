@@ -1,0 +1,31 @@
+#!/opt/puppet/bin/ruby
+require 'yaml'
+require 'syslog'
+require 'net/https'
+
+uri = URI.parse("<%= @console_base_url %>/#{ARGV.first}")
+
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+begin
+  request = Net::HTTP::Get.new(uri.request_uri)
+  request['Accept'] = 'text/yaml'
+  data = YAML.load(http.request(request).body)
+
+  if data['parameters'].include? 'environment'
+    data['environment'] = data['parameters']['environment']
+  end
+
+  puts data.to_yaml
+
+rescue Exception => e
+  Syslog.open('Puppet ENC', Syslog::LOG_PID | Syslog::LOG_CONS) do |syslog|
+    syslog.warning "Configuration error for '#{ARGV.first}': #{e.message}"
+  end
+
+  # return empty config so nothing blows up
+  puts "#{{ 'classes' => [] }.to_yaml}"
+end
+

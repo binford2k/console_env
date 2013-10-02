@@ -1,5 +1,5 @@
 name    'jay-console_env'
-version '1.0.0'
+version '1.0.1'
 source 'git://github.com/revhazroot/console_env.git'
 author 'Jay Wallace'
 license 'Apache 2.0'

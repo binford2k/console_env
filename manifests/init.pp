@@ -32,40 +32,38 @@
 # Copyright 2013 Jay Wallace
 #
 # === Notes.
-# Essentially this module uses a AWK script to look for the environment and append it to the bottom of what is returned via the ENC, if you run into any issues just ensure => absent to return 
-# the ENC to it original functionality.
+# Essentially this module looks for an environment parameter and appends it at top scope to the data returned by the upstream ENC.
+# If you run into any issues just ensure => absent to return the ENC to its original functionality.
 #
-# Feel free to just use the adjust ENC script if you do not prefer to use the module. I promise I won't be offended.
+# Feel free to just use the ENC script if you do not prefer to use the module. I promise I won't be offended.
 #
 # This is not the most elegant solution, but it works.
 class console_env (
   $ensure = present,
 ) {
+  $dashboard_path = '/etc/puppetlabs/puppet-dashboard'
 
-  $console_env_script = '/etc/puppetlabs/puppet-dashboard/console_env.awk'
-  $match_line = 'curl -k -H "Accept: text/yaml" "..ENC_BASE_URL./..1."'
-  $curl_line  = 'curl -k -H "Accept: text/yaml" "${ENC_BASE_URL}/${1}"'
-
-  case $ensure {
-    default:   { fail("unsupported ensure value ${ensure}") }
-    'present': { $line = "${curl_line} | ${console_env_script}" }
-    'absent':  { $line = $curl_line }
-  }
-
-  file_line { 'console_env-external_node':
-    ensure  => present,
-    path    => '/etc/puppetlabs/puppet-dashboard/external_node',
-    match   => "^${match_line}",
-    line    => $line,
-    require => File[$console_env_script],
-  }
-
-  file { $console_env_script:
-    ensure => $ensure,
+  file { "${dashboard_path}/external_node.rb":
+    ensure => present,
     owner  => 'root',
     group  => 'root',
-    mode   => '0755',
-    source => 'puppet:///modules/console_env/console_env.awk',
+    mode   => '755',
+    content => template('console_env/external_node.rb.erb'),
+  }
+
+  case $ensure  {
+    present: { $external_nodes = "${dashboard_path}/external_node.rb"   }
+    absent : { $external_nodes = "${dashboard_path}/external_node."     }
+    default: { fail("console_env: unsupported ensure value ${ensure}") }
+  }
+
+  ini_setting { "console_env-external_node":
+    ensure  => present,
+    path    => '/etc/puppetlabs/puppet/puppet.conf',
+    section => 'master',
+    setting => 'external_nodes',
+    value   => $external_nodes,
+    require => File["${dashboard_path}/external_node.rb"],
   }
 
 }
